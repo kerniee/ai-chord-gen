@@ -99,7 +99,7 @@ def possible_chords(root_pc, scale_intervals, allowed_chords, sus2_forbidden, su
             ans.add(chord_from_offsets(current_note, sus2))
         if i + 1 not in sus4__forbidden:
             ans.add(chord_from_offsets(current_note, sus4))
-    return ans
+    return frozenset(ans)
 
 
 def possible_chords_major_scale(root_pc: PitchClass, scale_intervals: List[int]) -> Set[FrozenSet[PitchClass]]:
@@ -386,11 +386,10 @@ def chord_fit(melody: List[Note]) -> Callable[[Chromosome], float]:
         s = 0
         for i, gene in enumerate(genes):
             current_notes = bar_to_notes[i]
-            for n1, n2 in combinations(chain(current_notes, gene.pitches), 2):
+            notes = set(chain(current_notes, gene.pitches))
+            for n1, n2 in combinations(notes, 2):
                 if abs(n1.value - n2.value) in dissonance:
                     s -= 5
-                else:
-                    s += 1
             for chord_note in gene.pitches:
                 s += int(chord_note in current_notes) * 2
         return s * 5
@@ -417,14 +416,14 @@ def chord_fit(melody: List[Note]) -> Callable[[Chromosome], float]:
         for gene in genes[1:]:
             if last_pitches == gene.pitches:
                 s += 1
-        return s * 30
+        return s * 30 if s < len(genes) / 2 else -100
 
     funcs = [
         fit_to_scale,
-        punish_same_notes,
+        # punish_same_notes,
         fit_to_current_notes,
         num_of_unique_chords,
-        fit_to_scale_chords,
+        # fit_to_scale_chords,
         same_chord
     ]
 
@@ -445,7 +444,7 @@ def chromosome_to_chords(genes: List[ChordGene]) -> List[List[Note]]:
     for chord_gene in genes:
         chord = []
         for pitch in chord_gene.pitches:
-            chord.append(Note(Pitch(pitch.value + 12 * 5)))
+            chord.append(Note(Pitch(pitch.value + 12 * 4)))
         notes.append(chord)
     return notes
 
@@ -465,7 +464,7 @@ def main():
     # Find possible scales
     scales, scales_with_root = possible_scales(notes, [major_scale, minor_scale])
     print("Fitted scales:")
-    print(*[" ".join([str(pitch.name) for pitch in scale]) for scale in scales], sep="\n")
+    print(*[" ".join([str(pitch.name) for pitch in sorted(scale, key=lambda e: e.value)]) for scale in scales], sep="\n")
 
     print()
     # Get fitness function
@@ -473,7 +472,8 @@ def main():
     print()
 
     # Take one of the fitted scales
-    scale, root = scales_with_root[0]
+    scale, root = scales_with_root[1]
+    # scale, root = random.choice(scales_with_root)
     # Get all suitable chords for that scale
     chords = list(scale.get_chords(root))
     ChordGene.possible_chords = chords
@@ -481,7 +481,7 @@ def main():
     ga = GA(fitness, gene_generate=ChordGene.generate)
     # Run genetic algorithm
     print("Running genetic algorithm...")
-    best = ga.run(20, int(duration), iters=2_000)
+    best = ga.run(20, int(duration), iters=3_000)
     best_chromosome = best["chromosome"]
     print_fitness(best_chromosome)
 
