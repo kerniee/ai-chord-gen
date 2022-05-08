@@ -451,7 +451,7 @@ def chromosome_to_chords(genes: List[ChordGene]) -> List[List[Note]]:
 
 
 def main():
-    FILE_INPUT = 'input3.mid'
+    FILE_INPUT = 'examples/input3.mid'
     FILE_OUTPUT = 'output.mid'
 
     mid = MidiFile(FILE_INPUT, clip=True)
